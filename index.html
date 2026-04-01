@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Davimed - Field Report Maker</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body class="bg-light">
+
+    <!-- Top Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <i class="ph-fill ph-first-aid text-blue"></i>
+                <span class="logo-text">DAVIMED</span>
+            </div>
+            <div class="nav-title">Field Report Pro</div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-container">
+
+        <!-- Report Meta Data -->
+        <section class="meta-section card">
+            <div class="section-header">
+                <i class="ph-fill ph-file-text"></i>
+                <h2>General Information</h2>
+            </div>
+            <div class="meta-grid">
+                <div class="form-group">
+                    <label for="report-date">Date of Report</label>
+                    <div class="input-icon-box">
+                        <i class="ph ph-calendar-blank"></i>
+                        <input type="text" id="report-date" placeholder="e.g. 31st, March 2026">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="report-area">Area of Work</label>
+                    <div class="input-icon-box">
+                        <i class="ph ph-map-pin"></i>
+                        <input type="text" id="report-area" placeholder="e.g. Kampala Central, Najeera">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Facility Visits List -->
+        <section class="visits-section">
+            <div class="section-header flex-between mb-4">
+                <div class="title-with-icon">
+                    <i class="ph-fill ph-buildings"></i>
+                    <h2>Facility Logistics</h2>
+                </div>
+                <span class="badge" id="visit-counter">0 Facilities</span>
+            </div>
+
+            <div id="entries-container" class="entries-list">
+                <!-- Javascript will inject entry cards here -->
+            </div>
+
+            <button type="button" id="add-entry-btn" class="btn btn-primary btn-add">
+                <i class="ph ph-plus"></i> Add Next Facility
+            </button>
+        </section>
+
+        <!-- Conclusion -->
+        <section class="conclusion-section card">
+            <div class="section-header">
+                <i class="ph-fill ph-notebook"></i>
+                <h2>Final Conclusion</h2>
+            </div>
+            <div class="form-group">
+                <label for="report-conclusion">Closing Remarks</label>
+                <textarea id="report-conclusion" rows="4" placeholder="Summarize your overall findings or follow-up plans..."></textarea>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Floating Footer for Action -->
+    <footer class="bottom-action-bar">
+        <div class="action-container">
+            <button type="button" id="generate-whatsapp-btn" class="btn btn-whatsapp btn-large">
+                <i class="ph-fill ph-whatsapp-logo"></i> Finalize & Send WhatsApp Report
+            </button>
+        </div>
+    </footer>
+
+    <!-- Entry Template for JS -->
+    <template id="entry-template">
+        <div class="entry-card card">
+            <div class="entry-header flex-between">
+                <div class="entry-number-badge">
+                    <span>Facility #</span><span class="entry-number"></span>
+                </div>
+                <button type="button" class="btn-icon btn-danger remove-entry-btn" title="Remove Entry">
+                    <i class="ph ph-trash"></i>
+                </button>
+            </div>
+            
+            <div class="entry-body">
+                <div class="form-group">
+                    <label>Facility Name <span class="required">*</span></label>
+                    <div class="input-icon-box">
+                        <i class="ph ph-hospital"></i>
+                        <input type="text" class="input-facility" placeholder="e.g. Layers of Wellness Pharmacy" required>
+                    </div>
+                </div>
+                
+                <div class="contact-grid">
+                    <div class="form-group">
+                        <label>Doctor's Name</label>
+                        <div class="input-icon-box">
+                            <i class="ph ph-user"></i>
+                            <input type="text" class="input-doctor" placeholder="e.g. Dr. Rachel">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Doctor's Number</label>
+                        <div class="input-icon-box">
+                            <i class="ph ph-phone"></i>
+                            <input type="text" class="input-phone" placeholder="e.g. 0773499667">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group mt-2">
+                    <label>Remarks / Discussion <span class="required">*</span></label>
+                    <textarea class="input-remarks" rows="2" placeholder="What happened at this facility?..." required></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script src="app.js"></script>
+</body>
+</html>
