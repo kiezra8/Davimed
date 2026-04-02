@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Davimed - Field Report Maker</title>
+    <title>Davimed - Premium Field Reporter Pro</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,132 +11,162 @@
     <link rel="stylesheet" href="style.css">
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- html2pdf.js for local PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-light">
 
-    <!-- Top Navigation -->
+    <!-- Navbar -->
     <nav class="navbar">
         <div class="nav-container">
             <div class="logo">
                 <i class="ph-fill ph-first-aid text-blue"></i>
                 <span class="logo-text">DAVIMED</span>
             </div>
-            <div class="nav-title">Field Report Pro</div>
+            <div class="nav-actions">
+                <button id="view-history-btn" class="btn-icon-text">
+                    <i class="ph ph-clock-counter-clockwise"></i> History
+                </button>
+            </div>
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <main class="main-container">
-
-        <!-- Report Meta Data -->
-        <section class="meta-section card">
+    <!-- Main Container -->
+    <main class="main-container" id="reporter-view">
+        
+        <!-- Report Basic Info -->
+        <section class="card mb-6">
             <div class="section-header">
-                <i class="ph-fill ph-file-text"></i>
+                <i class="ph ph-info"></i>
                 <h2>General Information</h2>
             </div>
             <div class="meta-grid">
                 <div class="form-group">
-                    <label for="report-date">Date of Report</label>
+                    <label>Report Date</label>
                     <div class="input-icon-box">
-                        <i class="ph ph-calendar-blank"></i>
-                        <input type="text" id="report-date" placeholder="e.g. 31st, March 2026">
+                        <i class="ph ph-calendar"></i>
+                        <input type="text" id="report-date" placeholder="e.g. 3rd, April 2026">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label for="report-area">Area of Work</label>
+                    <label>Work Area</label>
                     <div class="input-icon-box">
                         <i class="ph ph-map-pin"></i>
-                        <input type="text" id="report-area" placeholder="e.g. Kampala Central, Najeera">
+                        <input type="text" id="report-area" placeholder="e.g. Kampala Central">
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Facility Visits List -->
-        <section class="visits-section">
-            <div class="section-header flex-between mb-4">
-                <div class="title-with-icon">
-                    <i class="ph-fill ph-buildings"></i>
-                    <h2>Facility Logistics</h2>
-                </div>
-                <span class="badge" id="visit-counter">0 Facilities</span>
+        <!-- Facilities Section -->
+        <section id="facilities-list" class="mb-6">
+            <div class="flex-between mb-4">
+                <h2 class="section-title"><i class="ph ph-buildings"></i> Facilities Visited</h2>
+                <span class="badge" id="facility-count">0 Facilities</span>
             </div>
-
-            <div id="entries-container" class="entries-list">
-                <!-- Javascript will inject entry cards here -->
+            <div id="facilities-container">
+                <!-- Facility Cards injected here -->
             </div>
-
-            <button type="button" id="add-entry-btn" class="btn btn-primary btn-add">
-                <i class="ph ph-plus"></i> Add Next Facility
+            <button id="add-facility-btn" class="btn btn-outline btn-full card">
+                <i class="ph ph-plus"></i> Add New Facility
             </button>
         </section>
 
-        <!-- Conclusion -->
-        <section class="conclusion-section card">
+        <!-- General Conclusion -->
+        <section class="card mb-6">
             <div class="section-header">
-                <i class="ph-fill ph-notebook"></i>
-                <h2>Final Conclusion</h2>
+                <i class="ph ph-notebook"></i>
+                <h2>General Conclusion</h2>
             </div>
-            <div class="form-group">
-                <label for="report-conclusion">Closing Remarks</label>
-                <textarea id="report-conclusion" rows="4" placeholder="Summarize your overall findings or follow-up plans..."></textarea>
-            </div>
+            <textarea id="report-conclusion" rows="4" placeholder="Any final remarks..."></textarea>
         </section>
 
-    </main>
-
-    <!-- Floating Footer for Action -->
-    <footer class="bottom-action-bar">
-        <div class="action-container">
-            <button type="button" id="generate-whatsapp-btn" class="btn btn-whatsapp btn-large">
-                <i class="ph-fill ph-whatsapp-logo"></i> Finalize & Send WhatsApp Report
-            </button>
-        </div>
-    </footer>
-
-    <!-- Entry Template for JS -->
-    <template id="entry-template">
-        <div class="entry-card card">
-            <div class="entry-header flex-between">
-                <div class="entry-number-badge">
-                    <span>Facility #</span><span class="entry-number"></span>
-                </div>
-                <button type="button" class="btn-icon btn-danger remove-entry-btn" title="Remove Entry">
-                    <i class="ph ph-trash"></i>
+        <!-- Action Bar -->
+        <div class="action-bar-fixed">
+            <div class="action-grid">
+                <button id="export-pdf-btn" class="btn btn-primary">
+                    <i class="ph ph-file-pdf"></i> Generate PDF Report
+                </button>
+                <button id="save-report-btn" class="btn btn-secondary">
+                    <i class="ph ph-floppy-disk"></i> Save to History
                 </button>
             </div>
-            
-            <div class="entry-body">
-                <div class="form-group">
-                    <label>Facility Name <span class="required">*</span></label>
-                    <div class="input-icon-box">
-                        <i class="ph ph-hospital"></i>
-                        <input type="text" class="input-facility" placeholder="e.g. Layers of Wellness Pharmacy" required>
-                    </div>
-                </div>
-                
-                <div class="contact-grid">
-                    <div class="form-group">
-                        <label>Doctor's Name</label>
-                        <div class="input-icon-box">
-                            <i class="ph ph-user"></i>
-                            <input type="text" class="input-doctor" placeholder="e.g. Dr. Rachel">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Doctor's Number</label>
-                        <div class="input-icon-box">
-                            <i class="ph ph-phone"></i>
-                            <input type="text" class="input-phone" placeholder="e.g. 0773499667">
-                        </div>
-                    </div>
-                </div>
+        </div>
+    </main>
 
-                <div class="form-group mt-2">
-                    <label>Remarks / Discussion <span class="required">*</span></label>
-                    <textarea class="input-remarks" rows="2" placeholder="What happened at this facility?..." required></textarea>
+    <!-- History View (Overlay) -->
+    <div id="history-overlay" class="overlay">
+        <div class="overlay-content">
+            <div class="overlay-header">
+                <h2><i class="ph ph-clock-counter-clockwise"></i> Saved Reports</h2>
+                <button id="close-history-btn" class="btn-icon"><i class="ph ph-x"></i></button>
+            </div>
+            <div id="history-list" class="history-list">
+                <!-- History Items -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden PDF Template -->
+    <div id="pdf-template" style="display:none;">
+        <div class="pdf-report">
+            <div class="pdf-header">
+                <h1>DAVIMED</h1>
+                <p>DAILY FIELD REPORT</p>
+                <div class="pdf-meta">
+                    <p><strong>Date:</strong> <span id="pdf-date"></span></p>
+                    <p><strong>Area:</strong> <span id="pdf-area"></span></p>
                 </div>
             </div>
+            <div id="pdf-body"></div>
+            <div class="pdf-conclusion">
+                <h3>General Conclusion:</h3>
+                <p id="pdf-conclusion-text"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates -->
+    <template id="facility-template">
+        <div class="facility-card card mb-4">
+            <div class="card-header flex-between">
+                <h3>Facility #<span class="fac-idx"></span></h3>
+                <button class="btn-icon text-danger remove-fac-btn"><i class="ph ph-trash"></i></button>
+            </div>
+            <div class="form-group mb-4">
+                <label>Facility Name</label>
+                <input type="text" class="fac-name" placeholder="Facility Name...">
+            </div>
+            <div class="form-group mb-4">
+                <label>Type of Facility</label>
+                <select class="fac-type">
+                    <option value="Pharmacy">Pharmacy</option>
+                    <option value="Hospital">Hospital / Medical Center</option>
+                    <option value="Clinic">Clinic</option>
+                </select>
+            </div>
+            
+            <div class="doctors-section">
+                <div class="flex-between mb-2">
+                    <label>Doctor(s) / Personnel Contacted</label>
+                    <button class="btn-text add-doc-btn">+ Add Person</button>
+                </div>
+                <div class="doctors-container"></div>
+            </div>
+        </div>
+    </template>
+
+    <template id="doctor-template">
+        <div class="doctor-subcard mb-3">
+            <div class="flex-between mb-2">
+                <span class="sub-label">Person <span class="doc-idx"></span></span>
+                <button class="btn-icon-sm remove-doc-btn"><i class="ph ph-minus"></i></button>
+            </div>
+            <div class="doc-form-grid">
+                <input type="text" class="doc-name" placeholder="Name: Dr. X">
+                <input type="text" class="doc-phone" placeholder="Phn No: 07xxx">
+            </div>
+            <textarea class="doc-remarks" rows="2" placeholder="What they said / Remarks..."></textarea>
         </div>
     </template>
 

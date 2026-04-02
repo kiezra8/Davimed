@@ -1,147 +1,245 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const entriesContainer = document.getElementById('entries-container');
-    const addEntryBtn = document.getElementById('add-entry-btn');
-    const generateBtn = document.getElementById('generate-whatsapp-btn');
-    const entryTemplate = document.getElementById('entry-template');
+    // DOM Elements
+    const facilitiesContainer = document.getElementById('facilities-container');
+    const addFacilityBtn = document.getElementById('add-facility-btn');
+    const exportPdfBtn = document.getElementById('export-pdf-btn');
+    const saveReportBtn = document.getElementById('save-report-btn');
     const reportDateInput = document.getElementById('report-date');
     const reportAreaInput = document.getElementById('report-area');
-    const conclusionInput = document.getElementById('report-conclusion');
-    const visitCounter = document.getElementById('visit-counter');
-    
-    let entryCount = 0;
-    const WHATSAPP_NUMBER = '256702370441';
+    const reportConclusionInput = document.getElementById('report-conclusion');
+    const facilityCountSpan = document.getElementById('facility-count');
+    const historyBtn = document.getElementById('view-history-btn');
+    const historyOverlay = document.getElementById('history-overlay');
+    const closeHistoryBtn = document.getElementById('close-history-btn');
+    const historyList = document.getElementById('history-list');
 
-    // Auto Set Date Format
-    function setDefaultDate() {
-        const date = new Date();
-        const suffixes = ["th", "st", "nd", "rd"];
-        const day = date.getDate();
-        const relevantDigits = (day < 30) ? day % 20 : day % 30;
-        const suffix = (relevantDigits <= 3) ? suffixes[relevantDigits] : suffixes[0];
-        
-        const month = date.toLocaleString('default', { month: 'long' });
-        const year = date.getFullYear();
+    // Templates
+    const facilityTemplate = document.getElementById('facility-template');
+    const doctorTemplate = document.getElementById('doctor-template');
 
-        reportDateInput.value = `${day}${suffix}, ${month} ${year}`;
-    }
-    setDefaultDate();
+    // State
+    let facilities = [];
 
-    // Adds a new card entry
-    function addEntry() {
-        entryCount++;
-        const clone = entryTemplate.content.cloneNode(true);
-        const entryCard = clone.querySelector('.entry-card');
-        
-        // Update labels
-        entryCard.setAttribute('data-id', entryCount);
-        clone.querySelector('.entry-number').textContent = entryCount;
-        
-        // Remove Functionality
-        const removeBtn = clone.querySelector('.remove-entry-btn');
-        removeBtn.addEventListener('click', () => {
-            entryCard.remove();
-            updateEntryNumbers();
-        });
+    // Initialize Default Date
+    const today = new Date();
+    const dateFormatted = today.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    reportDateInput.value = dateFormatted;
 
-        const firstInput = clone.querySelector('.input-facility');
-        entriesContainer.appendChild(clone);
-        
-        updateCounterUI(entriesContainer.children.length);
+    // --- Facility Logic ---
+    function addFacility() {
+        const facId = Date.now();
+        const clone = facilityTemplate.content.cloneNode(true);
+        const card = clone.querySelector('.facility-card');
+        card.dataset.id = facId;
 
-        // Smooth scroll focus
-        setTimeout(() => {
-            firstInput.focus();
-            entryCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
+        // Numbering
+        updateIndices();
+
+        // Remove Facility
+        clone.querySelector('.remove-fac-btn').onclick = () => {
+            card.remove();
+            updateIndices();
+        };
+
+        // Add Doctor
+        const doctorsContainer = clone.querySelector('.doctors-container');
+        clone.querySelector('.add-doc-btn').onclick = () => addDoctor(doctorsContainer);
+
+        // Initial Doctor
+        addDoctor(doctorsContainer);
+
+        facilitiesContainer.appendChild(clone);
+        updateIndices();
     }
 
-    // Recalculates indices after deletion
-    function updateEntryNumbers() {
-        const cards = entriesContainer.querySelectorAll('.entry-card');
-        entryCount = 0;
-        cards.forEach((card, index) => {
-            entryCount = index + 1;
-            card.querySelector('.entry-number').textContent = entryCount;
-            card.setAttribute('data-id', entryCount);
-        });
-        updateCounterUI(cards.length);
-    }
-
-    function updateCounterUI(count) {
-        visitCounter.textContent = `${count} ${count === 1 ? 'Facility' : 'Facilities'}`;
-    }
-
-    // Start with 1 entry
-    addEntry();
-
-    addEntryBtn.addEventListener('click', addEntry);
-
-    // Generation Logic
-    generateBtn.addEventListener('click', () => {
-        const dateVal = reportDateInput.value.trim();
-        const areaVal = reportAreaInput.value.trim();
-        const conclusion = conclusionInput.value.trim();
-        const cards = entriesContainer.querySelectorAll('.entry-card');
-
-        if (cards.length === 0) {
-            alert('Please add at least one facility visit before sending.');
-            return;
-        }
-
-        // Initialize report header with Date and Area
-        let reportText = `${dateVal} Report\n\n`;
-        if (areaVal) {
-            reportText += `📍 Area: ${areaVal}\n\n`;
-        }
-
-        let isValid = true;
-        let entriesFormatted = [];
-
-        cards.forEach((card, index) => {
-            const facility = card.querySelector('.input-facility').value.trim();
-            const doctor = card.querySelector('.input-doctor').value.trim();
-            const phone = card.querySelector('.input-phone').value.trim();
-            const remarks = card.querySelector('.input-remarks').value.trim();
-
-            if (!facility || !remarks) {
-                isValid = false;
-                card.style.borderLeftColor = 'var(--error)';
-            } else {
-                card.style.borderLeftColor = 'var(--accent)';
+    function addDoctor(container) {
+        const clone = doctorTemplate.content.cloneNode(true);
+        const docCard = clone.querySelector('.doctor-subcard');
+        
+        clone.querySelector('.remove-doc-btn').onclick = () => {
+            if (container.children.length > 1) {
+                docCard.remove();
+                updateDocIndices(container);
             }
+        };
 
-            // Build formatting based on requirements:
-            // [Number]. [Facility Name]. [Remarks]. [Contact Info]
-            let contactInfo = '';
-            if (phone && doctor) {
-                contactInfo = ` - ${phone}- ${doctor}`;
-            } else if (phone) {
-                contactInfo = ` - ${phone}`;
-            } else if (doctor) {
-                contactInfo = ` - ${doctor}`;
-            }
-            
-            const cleanFacility = facility.replace(/\.+$/, '');
-            const cleanRemarks = remarks.trim();
-            
-            let entryLine = `${index + 1}. ${cleanFacility}. ${cleanRemarks}${contactInfo}`;
-            entriesFormatted.push(entryLine);
+        container.appendChild(clone);
+        updateDocIndices(container);
+    }
+
+    function updateIndices() {
+        const cards = facilitiesContainer.querySelectorAll('.facility-card');
+        cards.forEach((card, idx) => {
+            card.querySelector('.fac-idx').textContent = idx + 1;
+        });
+        facilityCountSpan.textContent = `${cards.length} Facilities`;
+    }
+
+    function updateDocIndices(container) {
+        const docSubcards = container.querySelectorAll('.doctor-subcard');
+        docSubcards.forEach((card, idx) => {
+            card.querySelector('.doc-idx').textContent = idx + 1;
+        });
+    }
+
+    // Start with 1 facility
+    addFacility();
+    addFacilityBtn.onclick = addFacility;
+
+    // --- Saving & History (Local Storage) ---
+    function saveToHistory() {
+        const report = compileReportData();
+        if (!report.facilities.length) return alert("Please add at least one facility.");
+
+        let history = JSON.parse(localStorage.getItem('davimed_history') || '[]');
+        history.unshift({ ...report, savedAt: new Date().toISOString() });
+        localStorage.setItem('davimed_history', JSON.stringify(history.slice(0, 50))); // Keep last 50
+        alert("Report saved to history!");
+    }
+
+    function compileReportData() {
+        const facCards = facilitiesContainer.querySelectorAll('.facility-card');
+        const facs = [];
+
+        facCards.forEach(card => {
+            const docCards = card.querySelectorAll('.doctor-subcard');
+            const docs = [];
+            docCards.forEach(docCard => {
+                docs.push({
+                    name: docCard.querySelector('.doc-name').value.trim(),
+                    phone: docCard.querySelector('.doc-phone').value.trim(),
+                    remarks: docCard.querySelector('.doc-remarks').value.trim()
+                });
+            });
+
+            facs.push({
+                name: card.querySelector('.fac-name').value.trim(),
+                type: card.querySelector('.fac-type').value,
+                people: docs
+            });
         });
 
-        if (!isValid) {
-            alert('Please fill out the highlighted fields before generating the report.');
-            return;
+        return {
+            date: reportDateInput.value,
+            area: reportAreaInput.value,
+            conclusion: reportConclusionInput.value,
+            facilities: facs
+        };
+    }
+
+    // --- History View ---
+    historyBtn.onclick = () => {
+        const history = JSON.parse(localStorage.getItem('davimed_history') || '[]');
+        historyList.innerHTML = history.length ? '' : '<p class="text-secondary">No saved reports found.</p>';
+        
+        history.forEach((rep, idx) => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `
+                <div class="flex-between">
+                    <strong>${rep.date || 'Unnamed Date'}</strong>
+                    <span class="badge">${rep.facilities.length} Facs</span>
+                </div>
+                <p class="text-secondary small mb-2">${rep.area || 'Unknown Area'}</p>
+                <div class="flex-between mt-2">
+                    <button class="btn-text btn-load-hist" data-idx="${idx}">Load Report</button>
+                    <button class="btn-icon-sm text-danger btn-del-hist" data-idx="${idx}"><i class="ph ph-trash"></i></button>
+                    <button class="btn-text btn-pdf-hist" data-idx="${idx}">Download PDF</button>
+                </div>
+            `;
+            historyList.appendChild(div);
+        });
+
+        historyOverlay.classList.add('active');
+    };
+
+    closeHistoryBtn.onclick = () => historyOverlay.classList.remove('active');
+
+    historyList.addEventListener('click', (e) => {
+        const idx = e.target.closest('button')?.dataset.idx;
+        if (idx === undefined) return;
+        const history = JSON.parse(localStorage.getItem('davimed_history') || '[]');
+        const report = history[parseInt(idx)];
+
+        if (e.target.classList.contains('btn-load-hist')) {
+            loadReport(report);
+            historyOverlay.classList.remove('active');
+        } else if (e.target.classList.contains('btn-del-hist')) {
+            if (confirm("Delete this report from history?")) {
+                history.splice(idx, 1);
+                localStorage.setItem('davimed_history', JSON.stringify(history));
+                historyBtn.click(); // Redraw
+            }
+        } else if (e.target.classList.contains('btn-pdf-hist')) {
+             generatePDF(report);
         }
-
-        reportText += entriesFormatted.join('\n') + '\n\n';
-
-        if (conclusion) {
-            reportText += conclusion + '\n';
-        }
-
-        const encodedMessage = encodeURIComponent(reportText);
-        const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
-
-        window.open(whatsappUrl, '_blank');
     });
+
+    function loadReport(data) {
+        reportDateInput.value = data.date;
+        reportAreaInput.value = data.area;
+        reportConclusionInput.value = data.conclusion;
+        facilitiesContainer.innerHTML = '';
+        data.facilities.forEach(fac => {
+            addFacility();
+            const lastFac = facilitiesContainer.lastElementChild;
+            lastFac.querySelector('.fac-name').value = fac.name;
+            lastFac.querySelector('.fac-type').value = fac.type;
+            
+            const docContainer = lastFac.querySelector('.doctors-container');
+            docContainer.innerHTML = '';
+            fac.people.forEach(person => {
+                addDoctor(docContainer);
+                const lastDoc = docContainer.lastElementChild;
+                lastDoc.querySelector('.doc-name').value = person.name;
+                lastDoc.querySelector('.doc-phone').value = person.phone;
+                lastDoc.querySelector('.doc-remarks').value = person.remarks;
+            });
+            updateDocIndices(docContainer);
+        });
+        updateIndices();
+    }
+
+    // --- PDF Generation (Organized format) ---
+    function generatePDF(data = null) {
+        const report = data || compileReportData();
+        const pdfContent = document.getElementById('pdf-body');
+        document.getElementById('pdf-date').innerText = report.date || 'N/A';
+        document.getElementById('pdf-area').innerText = report.area || 'N/A';
+        document.getElementById('pdf-conclusion-text').innerText = report.conclusion || 'No conclusion provided.';
+
+        pdfContent.innerHTML = '';
+        report.facilities.forEach((fac, idx) => {
+            const facDiv = document.createElement('div');
+            facDiv.className = 'pdf-fac';
+            facDiv.innerHTML = `
+                <div class="pdf-fac-name">FACILITY #${idx + 1}: ${fac.name.toUpperCase() || 'UNTITLED'} (${fac.type})</div>
+                ${fac.people.map((p, pIdx) => `
+                    <div class="pdf-doc-row">
+                        <p><strong>Person ${pIdx + 1}:</strong> ${p.name || 'Not specified'}</p>
+                        <p><strong>Phone:</strong> ${p.phone || 'N/A'}</p>
+                        <p><strong>Remarks:</strong> ${p.remarks || 'No remarks recorded.'}</p>
+                    </div>
+                `).join('')}
+            `;
+            pdfContent.appendChild(facDiv);
+        });
+
+        const element = document.getElementById('pdf-template').cloneNode(true);
+        element.style.display = 'block';
+        
+        const opt = {
+            margin:       [10, 10],
+            filename:     `Davimed_Report_${report.date.replace(/ /g, '_')}.pdf`,
+            image:        { type: 'jpeg', quality: 1 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2canvas = null; // Ensuring no conflict
+        html2pdf().set(opt).from(element).save();
+    }
+
+    exportPdfBtn.onclick = () => generatePDF();
+    saveReportBtn.onclick = saveToHistory;
 });
