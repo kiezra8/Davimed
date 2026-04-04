@@ -13,6 +13,7 @@
     --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --accent-light: #eff6ff;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -23,6 +24,8 @@ body {
     color: var(--text-primary);
     line-height: 1.5;
     padding-bottom: 140px;
+    overflow-wrap: anywhere;
+    word-break: normal;
 }
 
 /* Typography Helpers */
@@ -35,6 +38,7 @@ h1, h2, h3 { font-family: 'Playfair Display', serif; color: var(--primary-blue);
 .mb-4 { margin-bottom: 1rem; }
 .mb-6 { margin-bottom: 1.5rem; }
 .mt-4 { margin-top: 1rem; }
+.bg-accent-light { background-color: var(--accent-light) !important; }
 
 /* Navbar */
 .navbar {
@@ -166,6 +170,8 @@ select:focus, input:focus, textarea:focus {
 
 .btn-full { width: 100%; }
 
+.btn-sm { padding: 4px 10px; font-size: 0.85rem; }
+
 .btn-text {
     background: none; border: none; cursor: pointer; color: var(--accent-blue);
     font-weight: 600; font-size: 0.85rem;
@@ -234,4 +240,43 @@ select:focus, input:focus, textarea:focus {
 @media (max-width: 600px) {
     .meta-grid, .doc-form-grid, .action-grid { grid-template-columns: 1fr; }
     .overlay-content { width: 100%; height: 100%; border-radius: 0; }
+}
+
+/* Report Type Switcher */
+.report-type-switcher {
+    display: flex;
+    background: #e2e8f0;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1.5rem;
+}
+
+.type-btn {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    background: none;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: var(--transition);
+}
+
+.type-btn.active {
+    background: #fff;
+    color: var(--primary-blue);
+    box-shadow: var(--shadow-sm);
+}
+
+.hidden { display: none !important; }
+
+/* WhatsApp Button */
+.btn-whatsapp {
+    background: #25D366;
+    color: #fff;
+}
+.btn-whatsapp:hover {
+    background: #128C7E;
+    transform: translateY(-1px);
 }

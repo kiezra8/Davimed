@@ -34,11 +34,17 @@
     <!-- Main Container -->
     <main class="main-container" id="reporter-view">
         
+        <!-- Report Type Switcher -->
+        <div class="report-type-switcher">
+            <button id="daily-btn" class="type-btn active">Daily Report</button>
+            <button id="weekly-btn" class="type-btn">Weekly Report</button>
+        </div>
+
         <!-- Report Basic Info -->
         <section class="card mb-6">
             <div class="section-header">
                 <i class="ph ph-info"></i>
-                <h2>General Information</h2>
+                <h2 id="general-info-title">Daily Field Report</h2>
             </div>
             <div class="meta-grid">
                 <div class="form-group">
@@ -48,7 +54,7 @@
                         <input type="text" id="report-date" placeholder="e.g. 3rd, April 2026">
                     </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="work-area-group">
                     <label>Work Area</label>
                     <div class="input-icon-box">
                         <i class="ph ph-map-pin"></i>
@@ -58,8 +64,58 @@
             </div>
         </section>
 
+        <!-- Weekly Specific Sections (Hidden by default) -->
+        <div id="weekly-sections" class="hidden">
+            <div class="card mb-4 bg-accent-light" style="border: 1px dashed var(--accent-blue);">
+                <div class="flex-between">
+                    <div>
+                        <h3 style="font-size: 0.95rem; margin-bottom: 4px;">Smart Sync</h3>
+                        <p style="font-size: 0.8rem; color: var(--text-secondary);">Fill this weekly report using data from your saved daily reports.</p>
+                    </div>
+                    <button id="auto-generate-weekly-btn" class="btn btn-secondary btn-sm" style="padding: 6px 12px; font-size: 0.85rem;">
+                        <i class="ph ph-magic-wand"></i> Sync from Daily
+                    </button>
+                </div>
+            </div>
+
+            <section class="card mb-6">
+                <div class="section-header"><i class="ph ph-map-trifold"></i> <h2>Major Areas Covered</h2></div>
+                <textarea id="weekly-areas" rows="3" placeholder="List all major areas covered this week..."></textarea>
+            </section>
+
+            <section class="card mb-6">
+                <div class="section-header"><i class="ph ph-buildings"></i> <h2>Facilities Covered</h2></div>
+                <textarea id="weekly-facilities-summary" rows="3" placeholder="Summary of facilities visited..."></textarea>
+            </section>
+
+            <section class="card mb-6">
+                <div class="section-header"><i class="ph ph-handshake"></i> <h2>Promised Orders</h2></div>
+                <textarea id="weekly-promised" rows="3" placeholder="List facilities that promised orders..."></textarea>
+            </section>
+
+            <section class="card mb-6">
+                <div class="section-header"><i class="ph ph-shopping-bag"></i> <h2>Orders Made</h2></div>
+                <textarea id="weekly-orders" rows="3" placeholder="Details of orders finalized..."></textarea>
+            </section>
+
+            <section class="card mb-6">
+                <div class="section-header"><i class="ph ph-list-checks"></i> <h2>Task Evaluation</h2></div>
+                <textarea id="weekly-tasks" rows="3" placeholder="Evaluation of specific tasks given..."></textarea>
+            </section>
+
+            <section class="card mb-6">
+                <div class="section-header"><i class="ph ph-stethoscope"></i> <h2>Doctors Met & Contact Numbers</h2></div>
+                <textarea id="weekly-doctors" rows="3" placeholder="e.g. Dr. John - 0712345678, Dr. Sarah - 0787654321..."></textarea>
+            </section>
+
+            <section class="card mb-6">
+                <div class="section-header"><i class="ph ph-currency-dollar"></i> <h2>Payment Recovery</h2></div>
+                <textarea id="weekly-payments" rows="3" placeholder="Progress on payment recoveries..."></textarea>
+            </section>
+        </div>
+
         <!-- Facilities Section -->
-        <section id="facilities-list" class="mb-6">
+        <section id="facilities-list-section" class="mb-6">
             <div class="flex-between mb-4">
                 <h2 class="section-title"><i class="ph ph-buildings"></i> Facilities Visited</h2>
                 <span class="badge" id="facility-count">0 Facilities</span>
@@ -85,10 +141,13 @@
         <div class="action-bar-fixed">
             <div class="action-grid">
                 <button id="export-pdf-btn" class="btn btn-primary">
-                    <i class="ph ph-file-pdf"></i> Generate PDF Report
+                    <i class="ph ph-file-pdf"></i> PDF
+                </button>
+                <button id="whatsapp-btn" class="btn btn-whatsapp">
+                    <i class="ph-fill ph-whatsapp-logo"></i> WhatsApp
                 </button>
                 <button id="save-report-btn" class="btn btn-secondary">
-                    <i class="ph ph-floppy-disk"></i> Save to History
+                    <i class="ph ph-floppy-disk"></i> Save
                 </button>
             </div>
         </div>
@@ -111,13 +170,14 @@
     <div id="pdf-template" style="display:none;">
         <div class="pdf-report">
             <div class="pdf-header">
-                <h1>DAVIMED</h1>
-                <p>DAILY FIELD REPORT</p>
+                <h1 id="pdf-title">DAVIMED</h1>
+                <p id="pdf-subtitle">DAILY FIELD REPORT</p>
                 <div class="pdf-meta">
                     <p><strong>Date:</strong> <span id="pdf-date"></span></p>
-                    <p><strong>Area:</strong> <span id="pdf-area"></span></p>
+                    <p id="pdf-area-row"><strong>Area:</strong> <span id="pdf-area"></span></p>
                 </div>
             </div>
+            <div id="pdf-sections"></div>
             <div id="pdf-body"></div>
             <div class="pdf-conclusion">
                 <h3>General Conclusion:</h3>
