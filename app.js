@@ -1,3 +1,18 @@
+// Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBbc2vDFdjQPVksaHCtgxXoETHjVIKwku4",
+  authDomain: "davimed-b7c99.firebaseapp.com",
+  projectId: "davimed-b7c99",
+  storageBucket: "davimed-b7c99.firebasestorage.app",
+  messagingSenderId: "1050199232126",
+  appId: "1:1050199232126:web:cc510322decec04cae922f",
+  measurementId: "G-05MC3E1EKT"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const facilitiesContainer = document.getElementById('facilities-container');
@@ -64,60 +79,66 @@ document.addEventListener('DOMContentLoaded', () => {
             workAreaGroup.classList.add('hidden');
             document.getElementById('facilities-list-section').classList.add('hidden');
             
-            // AUTOMATIC GENERATION: If weekly fields are empty, sync from daily history automatically.
+            // AUTOMATIC GENERATION: If weekly fields are empty, sync from daily history
             if (!weeklyAreas.value.trim() && !weeklyFacilitiesSummary.value.trim()) {
-                syncWeeklyFromDaily(true); // silent sync
+                syncWeeklyFromDaily(true);
             }
         }
     }
 
     // --- AGGREGATION LOGIC (Smart Sync) ---
-    function syncWeeklyFromDaily(silent = false) {
-        const history = JSON.parse(localStorage.getItem('davimed_history') || '[]');
-        const dailyReports = history.filter(r => r.type === 'daily');
+    async function syncWeeklyFromDaily(silent = false) {
+        // Fetch from Firebase for most accurate sync
+        try {
+            const snapshot = await db.collection("reports")
+                .where("type", "==", "daily")
+                .orderBy("savedAt", "desc")
+                .limit(20)
+                .get();
+            
+            const dailyReports = [];
+            snapshot.forEach(doc => dailyReports.push(doc.data()));
 
-        if (!dailyReports.length) {
-            if (!silent) alert("No daily reports found in history to sync data from.");
-            return;
-        }
+            if (!dailyReports.length) {
+                if (!silent) alert("No daily reports found in history to sync data from.");
+                return;
+            }
 
-        // Filter for last 7 days from now
-        const now = new Date();
-        const oneWeekAgo = now.getTime() - (7 * 24 * 60 * 60 * 1000);
-        const thisWeekReports = dailyReports.filter(r => {
-            const saveDate = r.savedAt ? new Date(r.savedAt).getTime() : 0;
-            return saveDate >= oneWeekAgo;
-        });
-
-        if (!thisWeekReports.length) {
-            if (silent) return; // Don't annoy with confirm dialog on tab switch
-            if (!confirm("No daily reports found from the last 7 days. Pull from all available daily history instead?")) return;
-        }
-
-        const reportsToUse = thisWeekReports.length ? thisWeekReports : dailyReports;
-
-        // Data processing
-        const areasSet = new Set();
-        const facilitiesSet = new Set();
-        const doctorsArr = [];
-        let totalCount = 0;
-
-        reportsToUse.forEach(r => {
-            if (r.area) areasSet.add(r.area);
-            (r.facilities || []).forEach(f => {
-                if (f.name) facilitiesSet.add(f.name);
-                (f.people || []).forEach(p => {
-                    if (p.name) doctorsArr.push(`${p.name}${p.phone ? ' (' + p.phone + ')' : ''}`);
-                });
-                totalCount++;
+            // Filter for last 7 days from now
+            const now = new Date();
+            const oneWeekAgo = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+            const thisWeekReports = dailyReports.filter(r => {
+                const saveDate = r.savedAt ? new Date(r.savedAt).getTime() : 0;
+                return saveDate >= oneWeekAgo;
             });
-        });
 
-        weeklyAreas.value = Array.from(areasSet).join(', ');
-        weeklyFacilitiesSummary.value = `Visited ${totalCount} facilities:\n${Array.from(facilitiesSet).join(', ')}`;
-        weeklyDoctors.value = Array.from(new Set(doctorsArr)).join('\n');
-        
-        if (!silent) alert(`Successfully synced data from ${reportsToUse.length} daily report(s).`);
+            const reportsToUse = thisWeekReports.length ? thisWeekReports : dailyReports;
+
+            const areasSet = new Set();
+            const facilitiesSet = new Set();
+            const doctorsArr = [];
+            let totalCount = 0;
+
+            reportsToUse.forEach(r => {
+                if (r.area) areasSet.add(r.area);
+                (r.facilities || []).forEach(f => {
+                    if (f.name) facilitiesSet.add(f.name);
+                    (f.people || []).forEach(p => {
+                        if (p.name) doctorsArr.push(`${p.name}${p.phone ? ' (' + p.phone + ')' : ''}`);
+                    });
+                    totalCount++;
+                });
+            });
+
+            weeklyAreas.value = Array.from(areasSet).join(', ');
+            weeklyFacilitiesSummary.value = `Visited ${totalCount} facilities:\n${Array.from(facilitiesSet).join(', ')}`;
+            weeklyDoctors.value = Array.from(new Set(doctorsArr)).join('\n');
+            
+            if (!silent) alert(`Successfully synced data from ${reportsToUse.length} daily report(s).`);
+        } catch (e) {
+            console.error(e);
+            if (!silent) alert("Failed to sync from Firebase. Please check your connection.");
+        }
     }
 
     autoGenerateBtn.onclick = () => syncWeeklyFromDaily(false);
@@ -129,7 +150,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const card = clone.querySelector('.facility-card');
         card.dataset.id = facId;
 
-        // Numbering
         updateIndices();
 
         // Remove Facility
@@ -183,13 +203,28 @@ document.addEventListener('DOMContentLoaded', () => {
     addFacility();
     addFacilityBtn.onclick = addFacility;
 
-    // --- Saving & History ---
-    function saveToHistory() {
+    // --- FIREBASE SAVING ---
+    async function saveToFirebase() {
+        saveReportBtn.disabled = true;
+        saveReportBtn.innerHTML = '<i class="ph ph-spinner-gap spin"></i> Saving...';
+        
         const report = compileReportData();
-        let history = JSON.parse(localStorage.getItem('davimed_history') || '[]');
-        history.unshift({ ...report, savedAt: new Date().toISOString() });
-        localStorage.setItem('davimed_history', JSON.stringify(history.slice(0, 50)));
-        alert("Report saved to history!");
+        const reportWithTimestamp = { ...report, savedAt: new Date().toISOString() };
+
+        try {
+            await db.collection("reports").add(reportWithTimestamp);
+            alert("Report saved securely to Firebase!");
+        } catch (e) {
+            console.error(e);
+            alert("Warning: Firebase cloud save failed. Saving locally instead.");
+            // Local fallback
+            let localHistory = JSON.parse(localStorage.getItem('davimed_history') || '[]');
+            localHistory.unshift(reportWithTimestamp);
+            localStorage.setItem('davimed_history', JSON.stringify(localHistory.slice(0, 50)));
+        } finally {
+            saveReportBtn.disabled = false;
+            saveReportBtn.innerHTML = '<i class="ph ph-floppy-disk"></i> Save';
+        }
     }
 
     function compileReportData() {
@@ -234,50 +269,101 @@ document.addEventListener('DOMContentLoaded', () => {
         return data;
     }
 
-    // --- History View ---
-    historyBtn.onclick = () => {
+    // --- History View (FIREBASE) ---
+    historyBtn.onclick = async () => {
+        historyList.innerHTML = '<p class="text-secondary">Fetching reports from cloud...</p>';
+        historyOverlay.classList.add('active');
+
+        try {
+            const snapshot = await db.collection("reports").orderBy("savedAt", "desc").limit(50).get();
+            const history = [];
+            snapshot.forEach(doc => history.push({ id: doc.id, ...doc.data() }));
+
+            historyList.innerHTML = history.length ? '' : '<p class="text-secondary">No cloud reports found.</p>';
+            
+            history.forEach((rep) => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                const subtitle = rep.type === 'daily' ? (rep.area || 'Unknown Area') : 'Weekly Summary';
+                div.innerHTML = `
+                    <div class="flex-between">
+                        <strong>${rep.date || 'No Date'} (${rep.type || 'daily'})</strong>
+                    </div>
+                    <p class="text-secondary small mb-2">${subtitle}</p>
+                    <div class="flex-between mt-2">
+                        <button class="btn-text btn-load-hist" data-id="${rep.id}">Load</button>
+                        <button class="btn-icon-sm text-danger btn-del-hist" data-id="${rep.id}"><i class="ph ph-trash"></i></button>
+                        <button class="btn-text btn-pdf-hist" data-id="${rep.id}">PDF</button>
+                    </div>
+                `;
+                historyList.appendChild(div);
+            });
+        } catch (e) {
+            console.error(e);
+            historyList.innerHTML = '<p class="text-danger">Failed to fetch from cloud. Checking local history...</p>';
+            loadLocalHistory();
+        }
+    };
+
+    function loadLocalHistory() {
         const history = JSON.parse(localStorage.getItem('davimed_history') || '[]');
-        historyList.innerHTML = history.length ? '' : '<p class="text-secondary">No saved reports found.</p>';
-        
+        historyList.innerHTML = history.length ? '' : '<p class="text-secondary">No saved reports found locally.</p>';
         history.forEach((rep, idx) => {
             const div = document.createElement('div');
             div.className = 'history-item';
             const subtitle = rep.type === 'daily' ? (rep.area || 'Unknown Area') : 'Weekly Summary';
             div.innerHTML = `
                 <div class="flex-between">
-                    <strong>${rep.date || 'No Date'} (${rep.type || 'daily'})</strong>
+                    <strong>${rep.date || 'No Date'} (${rep.type || 'local'})</strong>
                 </div>
                 <p class="text-secondary small mb-2">${subtitle}</p>
                 <div class="flex-between mt-2">
-                    <button class="btn-text btn-load-hist" data-idx="${idx}">Load</button>
-                    <button class="btn-icon-sm text-danger btn-del-hist" data-idx="${idx}"><i class="ph ph-trash"></i></button>
-                    <button class="btn-text btn-pdf-hist" data-idx="${idx}">PDF</button>
+                    <button class="btn-text btn-load-hist-local" data-idx="${idx}">Load</button>
+                    <button class="btn-icon-sm text-danger btn-del-hist-local" data-idx="${idx}"><i class="ph ph-trash"></i></button>
+                    <button class="btn-text btn-pdf-hist-local" data-idx="${idx}">PDF</button>
                 </div>
             `;
             historyList.appendChild(div);
         });
-        historyOverlay.classList.add('active');
-    };
+    }
 
     closeHistoryBtn.onclick = () => historyOverlay.classList.remove('active');
 
-    historyList.addEventListener('click', (e) => {
-        const idx = e.target.closest('button')?.dataset.idx;
-        if (idx === undefined) return;
-        const history = JSON.parse(localStorage.getItem('davimed_history') || '[]');
-        const report = history[parseInt(idx)];
+    historyList.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
 
-        if (e.target.classList.contains('btn-load-hist')) {
-            loadReport(report);
-            historyOverlay.classList.remove('active');
-        } else if (e.target.classList.contains('btn-del-hist')) {
-            if (confirm("Delete?")) {
-                history.splice(idx, 1);
-                localStorage.setItem('davimed_history', JSON.stringify(history));
-                historyBtn.click();
+        const cloudId = btn.dataset.id;
+        const localIdx = btn.dataset.idx;
+
+        if (cloudId) {
+            const doc = await db.collection("reports").doc(cloudId).get();
+            const report = doc.data();
+
+            if (btn.classList.contains('btn-load-hist')) {
+                loadReport(report);
+                historyOverlay.classList.remove('active');
+            } else if (btn.classList.contains('btn-del-hist')) {
+                if (confirm("Permanently delete from cloud?")) {
+                    await db.collection("reports").doc(cloudId).delete();
+                    historyBtn.click();
+                }
+            } else if (btn.classList.contains('btn-pdf-hist')) {
+                 generatePDF(report);
             }
-        } else if (e.target.classList.contains('btn-pdf-hist')) {
-             generatePDF(report);
+        } else if (localIdx !== undefined) {
+             const history = JSON.parse(localStorage.getItem('davimed_history') || '[]');
+             const report = history[parseInt(localIdx)];
+             if (btn.classList.contains('btn-load-hist-local')) {
+                loadReport(report);
+                historyOverlay.classList.remove('active');
+             } else if (btn.classList.contains('btn-del-hist-local')) {
+                 history.splice(localIdx, 1);
+                 localStorage.setItem('davimed_history', JSON.stringify(history));
+                 loadLocalHistory();
+             } else if (btn.classList.contains('btn-pdf-hist-local')) {
+                 generatePDF(report);
+             }
         }
     });
 
@@ -418,5 +504,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     exportPdfBtn.onclick = () => generatePDF();
     whatsappBtn.onclick = shareToWhatsApp;
-    saveReportBtn.onclick = saveToHistory;
+    saveReportBtn.onclick = saveToFirebase;
 });
