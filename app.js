@@ -406,97 +406,134 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- PDF Generation ---
     function generatePDF(data = null) {
         const report = data || compileReportData();
-        const pdfSections = document.getElementById('pdf-sections');
-        const pdfBody = document.getElementById('pdf-body');
         
-        document.getElementById('pdf-date').innerText = report.date || 'N/A';
-        document.getElementById('pdf-subtitle').innerText = report.type === 'daily' ? 'DAILY FIELD REPORT' : 'WEEKLY PERFORMANCE REPORT';
-        document.getElementById('pdf-conclusion-text').innerText = report.conclusion || 'No conclusion provided.';
-        
-        const areaRow = document.getElementById('pdf-area-row');
-        pdfSections.innerHTML = '';
-        pdfBody.innerHTML = '';
+        // Create a temporary container for PDF rendering
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '0';
+        tempContainer.style.width = '210mm'; // A4 width
+        document.body.appendChild(tempContainer);
 
-        if (report.type === 'daily') {
-            areaRow.style.display = 'block';
-            document.getElementById('pdf-area').innerText = report.area || 'N/A';
-            
-            (report.facilities || []).forEach((fac, idx) => {
-                const facDiv = document.createElement('div');
-                facDiv.className = 'pdf-fac';
-                facDiv.innerHTML = `
-                    <div class="pdf-fac-name">FACILITY #${idx + 1}: ${fac.name.toUpperCase()} (${fac.type})</div>
-                    ${fac.people.map((p, pIdx) => `
-                        <div class="pdf-doc-row">
-                            <p><strong>Person ${pIdx + 1}:</strong> ${p.name || 'N/A'}</p>
-                            <p><strong>Phone:</strong> ${p.phone || 'N/A'}</p>
-                            <p><strong>Remarks:</strong> ${p.remarks || 'N/A'}</p>
+        const pdfHTML = `
+            <div class="pdf-report" style="background: white; padding: 20mm; min-height: 297mm; color: #111; font-family: 'Inter', sans-serif;">
+                <div style="text-align: center; border-bottom: 2px solid #0A3A6A; margin-bottom: 20px; padding-bottom: 15px;">
+                    <h1 style="font-family: 'Playfair Display', serif; color: #0A3A6A; font-size: 32px; margin: 0;">DAVIMED</h1>
+                    <p style="text-transform: uppercase; letter-spacing: 2px; font-weight: 600; margin-top: 5px; color: #0076D6;">${report.type === 'daily' ? 'DAILY FIELD REPORT' : 'WEEKLY PERFORMANCE REPORT'}</p>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-top: 15px; font-size: 14px; text-align: left;">
+                        <p><strong>Date:</strong> <span>${report.date || 'N/A'}</span></p>
+                        ${report.type === 'daily' ? `<p><strong>Area:</strong> <span>${report.area || 'N/A'}</span></p>` : ''}
+                    </div>
+                </div>
+
+                <div id="pdf-content-body">
+                    ${report.type === 'daily' ? 
+                        (report.facilities || []).map((fac, idx) => `
+                            <div class="pdf-fac" style="margin-bottom: 25px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; page-break-inside: avoid;">
+                                <div style="background: #f8fafc; padding: 10px 15px; border-bottom: 1px solid #e2e8f0; font-weight: bold; font-size: 16px; color: #0A3A6A;">
+                                    FACILITY #${idx + 1}: ${fac.name.toUpperCase()} (${fac.type})
+                                </div>
+                                <div style="padding: 15px;">
+                                    ${fac.people.map((p, pIdx) => `
+                                        <div style="margin-bottom: 15px; padding-left: 15px; border-left: 3px solid #0076D6; page-break-inside: avoid;">
+                                            <p style="margin-bottom: 5px;"><strong>Person ${pIdx + 1}:</strong> ${p.name || 'N/A'}</p>
+                                            <p style="margin-bottom: 5px;"><strong>Phone:</strong> ${p.phone || 'N/A'}</p>
+                                            <p style="margin-bottom: 0; color: #475569; font-style: italic;">" ${p.remarks || 'No remarks recorded.'} "</p>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')
+                        : 
+                        `
+                        <div style="margin-bottom: 20px;">
+                            ${[
+                                { label: 'MAJOR AREAS COVERED', value: report.weeklyData.majorAreas },
+                                { label: 'FACILITIES COVERED', value: report.weeklyData.facilitiesSummary },
+                                { label: 'PROMISED ORDERS', value: report.weeklyData.promised },
+                                { label: 'ORDERS MADE', value: report.weeklyData.orders },
+                                { label: 'TASK EVALUATION', value: report.weeklyData.tasks },
+                                { label: 'DOCTORS MET & CONTACT NUMBERS', value: report.weeklyData.doctors },
+                                { label: 'PAYMENT RECOVERY', value: report.weeklyData.payments }
+                            ].map(s => `
+                                <div style="margin-bottom: 15px; page-break-inside: avoid;">
+                                    <div style="background: #eff6ff; padding: 8px 12px; font-weight: bold; border-left: 4px solid #0076D6; color: #0A3A6A; font-size: 14px;">${s.label}</div>
+                                    <p style="padding: 12px; font-size: 14px; white-space: pre-wrap; margin: 0; color: #1e293b; background: #fff; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 4px 4px;">${s.value || 'N/A'}</p>
+                                </div>
+                            `).join('')}
                         </div>
-                    `).join('')}
-                `;
-                pdfBody.appendChild(facDiv);
-            });
-        } else {
-            areaRow.style.display = 'none';
-            const w = report.weeklyData;
-            const sections = [
-                { label: 'MAJOR AREAS COVERED', value: w.majorAreas },
-                { label: 'FACILITIES COVERED', value: w.facilitiesSummary },
-                { label: 'PROMISED ORDERS', value: w.promised },
-                { label: 'ORDERS MADE', value: w.orders },
-                { label: 'TASK EVALUATION', value: w.tasks },
-                { label: 'DOCTORS MET & CONTACT NUMBERS', value: w.doctors },
-                { label: 'PAYMENT RECOVERY', value: w.payments }
-            ];
+                        `
+                    }
+                </div>
 
-            sections.forEach(s => {
-                const sDiv = document.createElement('div');
-                sDiv.style.marginBottom = '20px';
-                sDiv.innerHTML = `<div style="background:#f0f0f0; padding:5px; font-weight:bold; border-bottom:1px solid #000">${s.label}</div>
-                                  <p style="padding:10px; font-size:14px; white-space:pre-wrap">${s.value || 'N/A'}</p>`;
-                pdfSections.appendChild(sDiv);
-            });
-        }
+                <div style="margin-top: 30px; border-top: 2px solid #0A3A6A; padding-top: 15px; page-break-inside: avoid;">
+                    <h3 style="font-size: 16px; color: #0A3A6A; margin-bottom: 10px;">General Conclusion:</h3>
+                    <p style="font-size: 14px; color: #1e293b; line-height: 1.6;">${report.conclusion || 'No conclusion provided.'}</p>
+                </div>
 
-        const element = document.getElementById('pdf-template').cloneNode(true);
-        element.style.display = 'block';
+                <div style="margin-top: 50px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px;">
+                    Generated by Davimed Pro Reporting System • ${new Date().toLocaleDateString()}
+                </div>
+            </div>
+        `;
+
+        tempContainer.innerHTML = pdfHTML;
         
         const opt = {
-            margin: [10, 10],
+            margin: [0, 0, 0, 0], // Margins handled in CSS padding
             filename: `Davimed_${report.type}_Report_${report.date.replace(/ /g, '_')}.pdf`,
-            image: { type: 'jpeg', quality: 1 },
-            html2canvas: { scale: 2 },
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { 
+                scale: 2, 
+                useCORS: true, 
+                letterRendering: true,
+                scrollX: 0,
+                scrollY: 0
+            },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
-        html2pdf().set(opt).from(element).save();
+        // Pre-load fonts or wait a bit if needed, then generate
+        html2pdf().set(opt).from(tempContainer).toPdf().get('pdf').then(function (pdf) {
+            // Clean up
+            document.body.removeChild(tempContainer);
+        }).save();
     }
 
     // --- WhatsApp Sharing ---
     function shareToWhatsApp() {
         const report = compileReportData();
         let message = `*DAVIMED ${report.type.toUpperCase()} REPORT*\n`;
-        message += `Date: ${report.date}\n`;
+        message += `📅 *Date:* ${report.date}\n`;
         
         if (report.type === 'daily') {
-            message += `Area: ${report.area}\n`;
-            message += `Facilities: ${report.facilities.length}\n\n`;
+            message += `📍 *Area:* ${report.area}\n`;
+            message += `🏥 *Facilities Visited:* ${report.facilities.length}\n\n`;
+            
             report.facilities.forEach((f, i) => {
-                message += `${i+1}. ${f.name} (${f.type})\n`;
+                message += `🏨 *${i+1}. ${f.name.toUpperCase()}* (${f.type})\n`;
+                if (f.people && f.people.length > 0) {
+                    f.people.forEach((p, pi) => {
+                        message += `👤 _Person ${pi+1}:_ ${p.name || 'N/A'} - ${p.phone || 'N/A'}\n`;
+                        if (p.remarks) message += `💬 _Notes:_ ${p.remarks}\n`;
+                    });
+                }
+                message += `\n`;
             });
         } else {
             const w = report.weeklyData;
-            message += `\n*Major Areas:* ${w.majorAreas}\n`;
-            message += `*Facilities:* ${w.facilitiesSummary}\n`;
-            message += `*Promised Orders:* ${w.promised}\n`;
-            message += `*Orders Made:* ${w.orders}\n`;
-            message += `*Task Evaluation:* ${w.tasks}\n`;
-            message += `*Doctors & Contacts:* ${w.doctors}\n`;
-            message += `*Payment Recovery:* ${w.payments}\n`;
+            message += `\n📍 *Major Areas:* ${w.majorAreas || 'N/A'}\n`;
+            message += `🏥 *Facilities:* ${w.facilitiesSummary || 'N/A'}\n`;
+            message += `🤝 *Promised Orders:* ${w.promised || 'N/A'}\n`;
+            message += `🛍️ *Orders Made:* ${w.orders || 'N/A'}\n`;
+            message += `📋 *Task Evaluation:* ${w.tasks || 'N/A'}\n`;
+            message += `🩺 *Doctors & Contacts:* ${w.doctors || 'N/A'}\n`;
+            message += `💰 *Payment Recovery:* ${w.payments || 'N/A'}\n`;
         }
         
-        message += `\n*Conclusion:* ${report.conclusion}\n\n`;
-        message += `_Note: Please attach the generated PDF report to this message._`;
+        message += `\n📝 *Conclusion:* ${report.conclusion || 'N/A'}\n\n`;
+        message += `_Report generated by Davimed Pro Reporting_`;
 
         const encoded = encodeURIComponent(message);
         window.open(`https://wa.me/?text=${encoded}`, '_blank');
