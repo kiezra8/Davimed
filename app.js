@@ -399,16 +399,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function generatePDF(data = null) {
         const report = data || compileReportData();
         
-        // Create a temporary container for PDF rendering
+        // Use an unattached DOM node to prevent layout shifting and off-screen rendering blank bugs.
         const tempContainer = document.createElement('div');
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.left = '-9999px';
-        tempContainer.style.top = '0';
-        tempContainer.style.width = '210mm'; // A4 width
-        document.body.appendChild(tempContainer);
 
+        // Inject fonts directly to ensure they are available in the headless iframe
         const pdfHTML = `
-            <div class="pdf-report" style="background: white; padding: 20mm; min-height: 297mm; color: #111; font-family: 'Inter', sans-serif;">
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap');
+                * { box-sizing: border-box; }
+                body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: white; }
+            </style>
+            <div class="pdf-report" style="background: white; padding: 15mm; min-height: 297mm; color: #111; font-family: 'Inter', sans-serif;">
                 <div style="text-align: center; border-bottom: 2px solid #0A3A6A; margin-bottom: 20px; padding-bottom: 15px;">
                     <h1 style="font-family: 'Playfair Display', serif; color: #0A3A6A; font-size: 32px; margin: 0;">DAVIMED</h1>
                     <p style="text-transform: uppercase; letter-spacing: 2px; font-weight: 600; margin-top: 5px; color: #0076D6;">${report.type === 'daily' ? 'DAILY FIELD REPORT' : 'WEEKLY PERFORMANCE REPORT'}</p>
@@ -427,13 +428,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                     FACILITY #${idx + 1}: ${fac.name.toUpperCase()} (${fac.type})
                                 </div>
                                 <div style="padding: 15px;">
-                                    ${fac.people.map((p, pIdx) => `
+                                    ${fac.people && fac.people.length ? fac.people.map((p, pIdx) => `
                                         <div style="margin-bottom: 15px; padding-left: 15px; border-left: 3px solid #0076D6; page-break-inside: avoid;">
                                             <p style="margin-bottom: 5px;"><strong>Person ${pIdx + 1}:</strong> ${p.name || 'N/A'}</p>
                                             <p style="margin-bottom: 5px;"><strong>Phone:</strong> ${p.phone || 'N/A'}</p>
                                             <p style="margin-bottom: 0; color: #475569; font-style: italic;">" ${p.remarks || 'No remarks recorded.'} "</p>
                                         </div>
-                                    `).join('')}
+                                    `).join('') : '<p>No personnel added.</p>'}
                                 </div>
                             </div>
                         `).join('')
@@ -441,13 +442,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         `
                         <div style="margin-bottom: 20px;">
                             ${[
-                                { label: 'MAJOR AREAS COVERED', value: report.weeklyData.majorAreas },
-                                { label: 'FACILITIES COVERED', value: report.weeklyData.facilitiesSummary },
-                                { label: 'PROMISED ORDERS', value: report.weeklyData.promised },
-                                { label: 'ORDERS MADE', value: report.weeklyData.orders },
-                                { label: 'TASK EVALUATION', value: report.weeklyData.tasks },
-                                { label: 'DOCTORS MET & CONTACT NUMBERS', value: report.weeklyData.doctors },
-                                { label: 'PAYMENT RECOVERY', value: report.weeklyData.payments }
+                                { label: 'MAJOR AREAS COVERED', value: report.weeklyData && report.weeklyData.majorAreas },
+                                { label: 'FACILITIES COVERED', value: report.weeklyData && report.weeklyData.facilitiesSummary },
+                                { label: 'PROMISED ORDERS', value: report.weeklyData && report.weeklyData.promised },
+                                { label: 'ORDERS MADE', value: report.weeklyData && report.weeklyData.orders },
+                                { label: 'TASK EVALUATION', value: report.weeklyData && report.weeklyData.tasks },
+                                { label: 'DOCTORS MET & CONTACT NUMBERS', value: report.weeklyData && report.weeklyData.doctors },
+                                { label: 'PAYMENT RECOVERY', value: report.weeklyData && report.weeklyData.payments }
                             ].map(s => `
                                 <div style="margin-bottom: 15px; page-break-inside: avoid;">
                                     <div style="background: #eff6ff; padding: 8px 12px; font-weight: bold; border-left: 4px solid #0076D6; color: #0A3A6A; font-size: 14px;">${s.label}</div>
@@ -472,25 +473,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tempContainer.innerHTML = pdfHTML;
         
+        let dateStr = "N_A";
+        if (report.date) {
+            dateStr = report.date.replace(/ /g, '_').replace(/,/g, '');
+        }
+
         const opt = {
-            margin: [0, 0, 0, 0], // Margins handled in CSS padding
-            filename: `Davimed_${report.type}_Report_${report.date.replace(/ /g, '_')}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { 
+            margin:       [5, 0, 5, 0], // Slight Top/Bottom margin
+            filename:     `Davimed_${report.type}_Report_${dateStr}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { 
                 scale: 2, 
                 useCORS: true, 
                 letterRendering: true,
-                scrollX: 0,
-                scrollY: 0
+                windowWidth: 800 // Specify a fixed window width for predictable rendering
             },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
-        // Pre-load fonts or wait a bit if needed, then generate
-        html2pdf().set(opt).from(tempContainer).toPdf().get('pdf').then(function (pdf) {
-            // Clean up
-            document.body.removeChild(tempContainer);
-        }).save();
+        // Pass element directly, saving automatically
+        html2pdf().set(opt).from(tempContainer).save();
     }
 
     // --- WhatsApp Sharing ---
