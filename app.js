@@ -1,17 +1,6 @@
-// Firebase Configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyBbc2vDFdjQPVksaHCtgxXoETHjVIKwku4",
-  authDomain: "davimed-b7c99.firebaseapp.com",
-  projectId: "davimed-b7c99",
-  storageBucket: "davimed-b7c99.firebasestorage.app",
-  messagingSenderId: "1050199232126",
-  appId: "1:1050199232126:web:cc510322decec04cae922f",
-  measurementId: "G-05MC3E1EKT"
-};
-
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+// Offline Data Store
+const STORAGE_KEY = 'davimed_reports_v2';
+let currentUser = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
@@ -28,6 +17,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const historyOverlay = document.getElementById('history-overlay');
     const closeHistoryBtn = document.getElementById('close-history-btn');
     const historyList = document.getElementById('history-list');
+
+    // Auth Elements
+    const authOverlay = document.getElementById('auth-overlay');
+    const usernameInput = document.getElementById('username-input');
+    const loginBtn = document.getElementById('login-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    const currentUserDisplay = document.getElementById('current-user-display');
+
+    // --- Auth Logic ---
+    function checkAuth() {
+        currentUser = localStorage.getItem('davimed_currentUser');
+        if (currentUser) {
+            authOverlay.style.display = 'none';
+            authOverlay.classList.remove('active');
+            currentUserDisplay.textContent = currentUser;
+        } else {
+            authOverlay.style.display = 'flex';
+            authOverlay.classList.add('active');
+            currentUserDisplay.textContent = '';
+        }
+    }
+
+    loginBtn.onclick = () => {
+        const name = usernameInput.value.trim();
+        if (name) {
+            localStorage.setItem('davimed_currentUser', name);
+            checkAuth();
+        }
+    };
+
+    if (logoutBtn) {
+        logoutBtn.onclick = () => {
+            localStorage.removeItem('davimed_currentUser');
+            checkAuth();
+        };
+    }
+
+    checkAuth();
 
     // Type Switcher Elements
     const dailyBtn = document.getElementById('daily-btn');
@@ -88,16 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- AGGREGATION LOGIC (Smart Sync) ---
     async function syncWeeklyFromDaily(silent = false) {
-        // Fetch from Firebase for most accurate sync
+        // Fetch from localStorage
         try {
-            const snapshot = await db.collection("reports")
-                .where("type", "==", "daily")
-                .orderBy("savedAt", "desc")
-                .limit(20)
-                .get();
-            
-            const dailyReports = [];
-            snapshot.forEach(doc => dailyReports.push(doc.data()));
+            const allReports = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            const dailyReports = allReports.filter(r => r.type === 'daily' && (r.user === currentUser || r.user === 'Anonymous'));
 
             if (!dailyReports.length) {
                 if (!silent) alert("No daily reports found in history to sync data from.");
@@ -137,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!silent) alert(`Successfully synced data from ${reportsToUse.length} daily report(s).`);
         } catch (e) {
             console.error(e);
-            if (!silent) alert("Failed to sync from Firebase. Please check your connection.");
+            if (!silent) alert("Failed to sync from local history.");
         }
     }
 
@@ -203,24 +224,26 @@ document.addEventListener('DOMContentLoaded', () => {
     addFacility();
     addFacilityBtn.onclick = addFacility;
 
-    // --- FIREBASE SAVING ---
-    async function saveToFirebase() {
+    // --- LOCAL SAVING ---
+    async function saveLocally() {
         saveReportBtn.disabled = true;
         saveReportBtn.innerHTML = '<i class="ph ph-spinner-gap spin"></i> Saving...';
         
-        const report = compileReportData();
-        const reportWithTimestamp = { ...report, savedAt: new Date().toISOString() };
-
         try {
-            await db.collection("reports").add(reportWithTimestamp);
-            alert("Report saved securely to Firebase!");
+            const report = compileReportData();
+            const reportWithTimestamp = { 
+                ...report, 
+                savedAt: new Date().toISOString(),
+                user: currentUser || 'Anonymous'
+            };
+
+            let localHistory = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            localHistory.unshift(reportWithTimestamp);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(localHistory));
+            alert("Report saved securely to your device!");
         } catch (e) {
             console.error(e);
-            alert("Warning: Firebase cloud save failed. Saving locally instead.");
-            // Local fallback
-            let localHistory = JSON.parse(localStorage.getItem('davimed_history') || '[]');
-            localHistory.unshift(reportWithTimestamp);
-            localStorage.setItem('davimed_history', JSON.stringify(localHistory.slice(0, 50)));
+            alert("Failed to save report.");
         } finally {
             saveReportBtn.disabled = false;
             saveReportBtn.innerHTML = '<i class="ph ph-floppy-disk"></i> Save';
@@ -269,46 +292,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return data;
     }
 
-    // --- History View (FIREBASE) ---
-    historyBtn.onclick = async () => {
-        historyList.innerHTML = '<p class="text-secondary">Fetching reports from cloud...</p>';
+    // --- History View (LOCAL) ---
+    historyBtn.onclick = () => {
         historyOverlay.classList.add('active');
-
-        try {
-            const snapshot = await db.collection("reports").orderBy("savedAt", "desc").limit(50).get();
-            const history = [];
-            snapshot.forEach(doc => history.push({ id: doc.id, ...doc.data() }));
-
-            historyList.innerHTML = history.length ? '' : '<p class="text-secondary">No cloud reports found.</p>';
-            
-            history.forEach((rep) => {
-                const div = document.createElement('div');
-                div.className = 'history-item';
-                const subtitle = rep.type === 'daily' ? (rep.area || 'Unknown Area') : 'Weekly Summary';
-                div.innerHTML = `
-                    <div class="flex-between">
-                        <strong>${rep.date || 'No Date'} (${rep.type || 'daily'})</strong>
-                    </div>
-                    <p class="text-secondary small mb-2">${subtitle}</p>
-                    <div class="flex-between mt-2">
-                        <button class="btn-text btn-load-hist" data-id="${rep.id}">Load</button>
-                        <button class="btn-icon-sm text-danger btn-del-hist" data-id="${rep.id}"><i class="ph ph-trash"></i></button>
-                        <button class="btn-text btn-pdf-hist" data-id="${rep.id}">PDF</button>
-                    </div>
-                `;
-                historyList.appendChild(div);
-            });
-        } catch (e) {
-            console.error(e);
-            historyList.innerHTML = '<p class="text-danger">Failed to fetch from cloud. Checking local history...</p>';
-            loadLocalHistory();
-        }
+        loadLocalHistory();
     };
 
     function loadLocalHistory() {
-        const history = JSON.parse(localStorage.getItem('davimed_history') || '[]');
-        historyList.innerHTML = history.length ? '' : '<p class="text-secondary">No saved reports found locally.</p>';
-        history.forEach((rep, idx) => {
+        let allHistory = [];
+        try {
+            allHistory = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        } catch (e) {
+            allHistory = [];
+        }
+
+        const history = allHistory.filter(r => r.user === currentUser || r.user === 'Anonymous');
+
+        historyList.innerHTML = history.length ? '' : '<p class="text-secondary">No saved reports found.</p>';
+        history.forEach((rep) => {
+            const globalIdx = allHistory.indexOf(rep);
+            if(globalIdx === -1) return;
+
             const div = document.createElement('div');
             div.className = 'history-item';
             const subtitle = rep.type === 'daily' ? (rep.area || 'Unknown Area') : 'Weekly Summary';
@@ -318,9 +322,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <p class="text-secondary small mb-2">${subtitle}</p>
                 <div class="flex-between mt-2">
-                    <button class="btn-text btn-load-hist-local" data-idx="${idx}">Load</button>
-                    <button class="btn-icon-sm text-danger btn-del-hist-local" data-idx="${idx}"><i class="ph ph-trash"></i></button>
-                    <button class="btn-text btn-pdf-hist-local" data-idx="${idx}">PDF</button>
+                    <button class="btn-text btn-load-hist-local" data-idx="${globalIdx}">Load</button>
+                    <button class="btn-icon-sm text-danger btn-del-hist-local" data-idx="${globalIdx}"><i class="ph ph-trash"></i></button>
+                    <button class="btn-text btn-pdf-hist-local" data-idx="${globalIdx}">PDF</button>
                 </div>
             `;
             historyList.appendChild(div);
@@ -329,38 +333,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     closeHistoryBtn.onclick = () => historyOverlay.classList.remove('active');
 
-    historyList.addEventListener('click', async (e) => {
+    historyList.addEventListener('click', (e) => {
         const btn = e.target.closest('button');
         if (!btn) return;
 
-        const cloudId = btn.dataset.id;
-        const localIdx = btn.dataset.idx;
+        const globalIdx = btn.dataset.idx;
 
-        if (cloudId) {
-            const doc = await db.collection("reports").doc(cloudId).get();
-            const report = doc.data();
+        if (globalIdx !== undefined) {
+             let allHistory = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+             const report = allHistory[parseInt(globalIdx)];
+             if (!report) return;
 
-            if (btn.classList.contains('btn-load-hist')) {
-                loadReport(report);
-                historyOverlay.classList.remove('active');
-            } else if (btn.classList.contains('btn-del-hist')) {
-                if (confirm("Permanently delete from cloud?")) {
-                    await db.collection("reports").doc(cloudId).delete();
-                    historyBtn.click();
-                }
-            } else if (btn.classList.contains('btn-pdf-hist')) {
-                 generatePDF(report);
-            }
-        } else if (localIdx !== undefined) {
-             const history = JSON.parse(localStorage.getItem('davimed_history') || '[]');
-             const report = history[parseInt(localIdx)];
              if (btn.classList.contains('btn-load-hist-local')) {
                 loadReport(report);
                 historyOverlay.classList.remove('active');
              } else if (btn.classList.contains('btn-del-hist-local')) {
-                 history.splice(localIdx, 1);
-                 localStorage.setItem('davimed_history', JSON.stringify(history));
-                 loadLocalHistory();
+                 if(confirm("Permanently delete this report?")) {
+                     allHistory.splice(parseInt(globalIdx), 1);
+                     localStorage.setItem(STORAGE_KEY, JSON.stringify(allHistory));
+                     loadLocalHistory();
+                 }
              } else if (btn.classList.contains('btn-pdf-hist-local')) {
                  generatePDF(report);
              }
@@ -502,8 +494,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- WhatsApp Sharing ---
-    function shareToWhatsApp() {
-        const report = compileReportData();
+    function shareToWhatsApp(data = null) {
+        const report = data || compileReportData();
         let message = `*DAVIMED ${report.type.toUpperCase()} REPORT*\n`;
         message += `📅 *Date:* ${report.date}\n`;
         
@@ -540,6 +532,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     exportPdfBtn.onclick = () => generatePDF();
-    whatsappBtn.onclick = shareToWhatsApp;
-    saveReportBtn.onclick = saveToFirebase;
+    whatsappBtn.onclick = () => shareToWhatsApp();
+    saveReportBtn.onclick = saveLocally;
 });

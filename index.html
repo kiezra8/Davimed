@@ -14,9 +14,7 @@
     <!-- html2pdf.js for local PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <!-- Offline storage only -->
 </head>
 <body class="bg-light">
 
@@ -27,9 +25,13 @@
                 <i class="ph-fill ph-first-aid text-blue"></i>
                 <span class="logo-text">DAVIMED</span>
             </div>
-            <div class="nav-actions">
+            <div class="nav-actions" style="display: flex; align-items: center; gap: 10px;">
+                <span id="current-user-display" style="font-size: 0.9rem; font-weight: 500; color: var(--text-secondary);"></span>
                 <button id="view-history-btn" class="btn-icon-text">
                     <i class="ph ph-clock-counter-clockwise"></i> History
+                </button>
+                <button id="logout-btn" class="btn-icon-text text-danger" style="color: #ef4444;">
+                    <i class="ph ph-sign-out"></i> Logout
                 </button>
             </div>
         </div>
@@ -156,6 +158,23 @@
             </div>
         </div>
     </main>
+
+    <!-- Auth View (Overlay) -->
+    <div id="auth-overlay" class="overlay active" style="z-index: 10000; background: var(--bg-light); display: flex; align-items: center; justify-content: center; opacity: 1; visibility: visible;">
+        <div class="card" style="width: 100%; max-width: 400px; text-align: center; padding: 2.5rem 2rem;">
+            <i class="ph-fill ph-first-aid text-blue" style="font-size: 4rem; margin-bottom: 1rem;"></i>
+            <h2 style="margin-bottom: 0.5rem; color: var(--text-dark); font-family: 'Playfair Display', serif;">Davimed Pro</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 2rem; font-size: 0.9rem;">Offline Field Reporting</p>
+            <div class="form-group mb-4" style="text-align: left;">
+                <label>User Name / ID</label>
+                <div class="input-icon-box">
+                    <i class="ph ph-user"></i>
+                    <input type="text" id="username-input" placeholder="Enter your name...">
+                </div>
+            </div>
+            <button id="login-btn" class="btn btn-primary btn-full">Sign In securely</button>
+        </div>
+    </div>
 
     <!-- History View (Overlay) -->
     <div id="history-overlay" class="overlay">
